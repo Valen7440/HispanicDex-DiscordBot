@@ -386,7 +386,6 @@ class Dev(commands.Cog):
         msg = copy(ctx.message)
         msg.author = user
         msg.content = ctx.prefix + command
-
         ctx.bot.dispatch("message", msg)
 
     @commands.command(name="mockmsg")

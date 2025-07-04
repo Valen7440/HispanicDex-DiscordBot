@@ -52,6 +52,16 @@ async def lower_translations(
             [x.strip() for x in instance.translations.split(";")]
         ).lower()
 
+async def check_create_itemsinstance(
+    model: Type[ItemsInstance],
+    instance: ItemsInstance,
+    created: bool,
+    using_db: "BaseDBAsyncClient | None" = None,
+    update_fields: Iterable[str] | None = None,
+):
+    await instance.fetch_related("item")
+    if not instance.item.can_register:
+        raise ValueError("Item must be registered before purchase.")
 
 class DiscordSnowflakeValidator(validators.Validator):
     def __call__(self, value: int):
@@ -69,6 +79,11 @@ class GuildConfig(models.Model):
     enabled = fields.BooleanField(
         description="Whether the bot will spawn countryballs in this guild", default=True
     )
+    items: fields.ManyToManyRelation[ItemsBD] = fields.ManyToManyField(
+        "models.ItemsBD",
+        default=[]
+    )
+    update_items = fields.DatetimeField(null=True) 
     # this option is currently disabled
     silent = fields.BooleanField(
         description="Whether the responses of guesses get sent as ephemeral or not",
@@ -455,7 +470,11 @@ class Player(models.Model):
         default=TradeCooldownPolicy.COOLDOWN,
     )
     extra_data = fields.JSONField(default=dict)
+    money = fields.IntField(default=0)
+    cooldown: fields.Field[datetime] | None = fields.DatetimeField(null=True)
+
     balls: fields.BackwardFKRelation[BallInstance]
+    items: fields.BackwardFKRelation[ItemsInstance]
 
     def __str__(self) -> str:
         return str(self.discord_id)
@@ -468,10 +487,39 @@ class Player(models.Model):
 
     async def is_blocked(self, other_player: "Player") -> bool:
         return await Block.filter((Q(player1=self) & Q(player2=other_player))).exists()
+    
+    async def add_money(self, amount: int) -> int:
+        if amount <= 0:
+            raise ValueError("Amount to add must be positive")
+        self.money += amount
+        await self.save(update_fields=("money",))
+        return self.money
+
+    async def remove_money(self, amount: int) -> None:
+        if self.money < amount:
+            raise ValueError("Not enough money")
+        self.money -= amount
+        await self.save(update_fields=("money",))
+
+    def can_afford(self, amount: int) -> bool:
+        return self.money >= amount
 
     @property
     def can_be_mentioned(self) -> bool:
         return self.mention_policy == MentionPolicy.ALLOW
+    
+    async def set_cooldown(self):
+        self.cooldown = timezone.now()
+        await self.save(update_fields=("cooldown",))
+
+    async def remove_cooldown(self):
+        self.cooldown = None  # type: ignore
+        await self.save(update_fields=("cooldown",))
+
+    async def is_cooldowned(self):
+        await self.refresh_from_db(fields=("cooldown",))
+        self.cooldown
+        return self.cooldown is not None and (self.cooldown + timedelta(days=1)) > timezone.now()
 
 
 class BlacklistedID(models.Model):
@@ -587,3 +635,44 @@ class Block(models.Model):
 
     def __str__(self) -> str:
         return str(self.pk)
+    
+class ItemsBD(models.Model):
+    ball_id: int
+    special_id: int
+
+    name = fields.CharField(max_length=64)
+    value = fields.IntField(default=0)
+    ball: fields.ForeignKeyRelation[Ball] | None = fields.ForeignKeyField(
+        "models.Ball",
+        on_delete=fields.SET_NULL,
+        null=True
+    )
+    special: fields.ForeignKeyRelation[Special] | None = fields.ForeignKeyField(
+        "models.Special",
+        on_delete=fields.SET_NULL,
+        null=True
+    )
+    emoji_id = fields.BigIntField(
+        description="Emoji ID for this ball", null=True, validators=[DiscordSnowflakeValidator()]
+    )
+    can_register = fields.BooleanField(default=False)
+    update_at = fields.DatetimeField(auto_now_add=True)
+
+    class Meta:
+        table = "items"
+
+class ItemsInstance(models.Model):
+    player_id: int
+    item_id: int
+
+    player: fields.ForeignKeyRelation[Player] = fields.ForeignKeyField(
+        "models.Player",
+        on_delete=fields.CASCADE,
+        related_name="items"
+    )
+    item: fields.ForeignKeyRelation[ItemsBD] = fields.ForeignKeyField(
+        "models.ItemsBD",
+        on_delete=fields.CASCADE
+    )
+
+ItemsInstance.register_listener(signals.Signals.pre_save, check_create_itemsinstance)

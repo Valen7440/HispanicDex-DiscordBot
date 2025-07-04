@@ -97,12 +97,15 @@ class CountryballNamePrompt(Modal, title=f"Catch this {settings.collectible_name
             )
             return
 
+        coins = random.randint(10, 30)
+        await player.add_money(coins)
+
         ball, has_caught_before = await self.view.catch_ball(
             interaction.user, player=player, guild=interaction.guild
         )
 
         await interaction.followup.send(
-            self.view.get_catch_message(ball, has_caught_before, interaction.user.mention),
+            self.view.get_catch_message(ball, has_caught_before, interaction.user.mention, coins),
             allowed_mentions=discord.AllowedMentions(users=player.can_be_mentioned),
         )
         await interaction.followup.edit_message(self.view.message.id, view=self.view)
@@ -151,11 +154,18 @@ class BallSpawnView(View):
         self.hp_bonus: int | None = None
         self.og_id: int
 
+        self.add_item(Button(
+            style=discord.ButtonStyle.link,
+            label="Join the Server!",
+            url="https://discord.gg/hcMAqXeAFZ"
+        ))
+
     async def interaction_check(self, interaction: discord.Interaction["BallsDexBot"], /) -> bool:
         return await interaction.client.blacklist_check(interaction)
 
     async def on_timeout(self):
-        self.catch_button.disabled = True
+        for item in self.children:
+            item.disabled = True # type: ignore
         if self.message:
             try:
                 await self.message.edit(view=self)
@@ -347,7 +357,8 @@ class BallSpawnView(View):
         if self.caught:
             raise RuntimeError("This ball was already caught!")
         self.caught = True
-        self.catch_button.disabled = True
+        for item in self.children:
+            item.disabled = True # type: ignore
         player = player or (await Player.get_or_create(discord_id=user.id))[0]
         is_new = not await BallInstance.filter(player=player, ball=self.model).exists()
 
@@ -408,7 +419,7 @@ class BallSpawnView(View):
 
         return ball, is_new
 
-    def get_catch_message(self, ball: BallInstance, new_ball: bool, mention: str) -> str:
+    def get_catch_message(self, ball: BallInstance, new_ball: bool, mention: str, coins: int = 0) -> str:
         """
         Generate a user-facing message after a ball has been caught.
 
@@ -419,10 +430,16 @@ class BallSpawnView(View):
         new_ball: bool
             Boolean indicating if this is a new countryball in completion
             (as returned by `catch_ball`)
+        coins: int = 0
+            The coins obtained.
         """
         text = ""
         if ball.specialcard and ball.specialcard.catch_phrase:
             text += f"*{ball.specialcard.catch_phrase}*\n"
+        if coins > 0:
+            text += (
+                f"You won **{coins}** coins!\n"
+            )
         if new_ball:
             text += (
                 f"This is a **new {settings.collectible_name}** "

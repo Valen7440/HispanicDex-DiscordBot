@@ -527,6 +527,9 @@ class Balls(app_commands.Group):
         capacity_description: app_commands.Range[str, None, 256],
         collection_card: discord.Attachment,
         image_credits: str,
+        catch_names: str | None = None,
+        translations: str | None = None,
+        short_name: app_commands.Range[str, None, 24] | None = None,
         economy: EconomyTransform | None = None,
         rarity: float = 0.0,
         enabled: bool = False,
@@ -607,6 +610,9 @@ class Balls(app_commands.Group):
         try:
             ball = await Ball.create(
                 country=name,
+                catch_names=catch_names,
+                translations=translations,
+                short_name=short_name,
                 regime=regime,
                 economy=economy,
                 health=health,
@@ -646,3 +652,160 @@ class Balls(app_commands.Group):
                 f"{health=} {attack=} {rarity=} {enabled=} {tradeable=} emoji={emoji}",
                 files=files,
             )
+
+    @app_commands.command(name="edit")
+    @app_commands.checks.has_any_role(*settings.root_role_ids)
+    async def balls_edit(
+        self,
+        interaction: discord.Interaction[BallsDexBot],
+        countryball: BallTransform,
+        country: app_commands.Range[str, None, 48] | None = None,
+        short_name: app_commands.Range[str, None, 12] | None = None,
+        catch_names: str | None = None,
+        translations: str | None = None,
+        regime: RegimeTransform | None = None,
+        economy: EconomyTransform | None = None,
+        health: int | None = None,
+        attack: int | None = None,
+        rarity: float | None = None,
+        enabled: bool | None = None,
+        tradeable: bool | None = None,
+        emoji_id: app_commands.Range[str, 17, 19] | None = None,
+        wild_card: discord.Attachment | None = None,
+        collection_card: discord.Attachment | None = None,
+        credits: app_commands.Range[str, None, 64] | None = None,
+        capacity_name: app_commands.Range[str, None, 64] | None = None,
+        capacity_description: app_commands.Range[str, None, 256] | None = None,
+    ):
+        """
+        Actualiza una ball.
+
+        Parameters
+        ----------
+        countryball: Ball
+        country: str | None
+        short_name: str | None
+        catch_names: str | None
+        translations: str | None
+        regime: Regime | None
+        economy: Economy | None
+        health: int | None
+        attack: int | None
+        rarity: float | None
+        enabled: bool | None
+        tradeable: bool | None
+        emoji_id: str | None
+        wild_card: discord.Attachment | None
+        collection_card: discord.Attachment | None
+        credits: str | None
+        capacity_name: str | None
+        capacity_description: str | None
+        """
+        emoji = interaction.client.get_emoji(int(countryball.emoji_id))
+        
+        if collection_card:
+            try:
+                collection_card_path = await save_file(collection_card)
+            except Exception as e:
+                log.exception("Failed saving file when creating countryball", exc_info=True)
+                await interaction.followup.send(
+                    f"Failed saving the attached file: {collection_card.url}.\n"
+                    f"Partial error: {', '.join(str(x) for x in e.args)}\n"
+                    "The full error is in the bot logs."
+                )
+                return
+        
+        if wild_card:
+            try:
+                wild_card_path = await save_file(wild_card)
+            except Exception as e:
+                log.exception("Failed saving file when creating countryball", exc_info=True)
+                await interaction.followup.send(
+                    f"Failed saving the attached file: {wild_card.url}.\n"
+                    f"Partial error: {', '.join(str(x) for x in e.args)}\n"
+                    "The full error is in the bot logs."
+                )
+                return
+            
+        if country:
+            countryball.country = country
+            await countryball.save()
+
+        if short_name:
+            countryball.short_name = short_name
+            await countryball.save()
+
+        if catch_names:
+            countryball.catch_names = catch_names.lower()
+            await countryball.save()
+
+        if translations:
+            countryball.translations = translations.lower()
+            await countryball.save()
+
+        if regime:
+            countryball.regime = regime
+            await countryball.save()
+
+        if economy:
+            countryball.economy = economy
+            await countryball.save()
+
+        if health:
+            countryball.health = health
+            await countryball.save()
+        
+        if attack:
+            countryball.attack = attack
+            await countryball.save()
+
+        if rarity:
+            countryball.rarity = rarity
+            await countryball.save()
+
+        if enabled:
+            countryball.enabled = enabled
+            await countryball.save()    
+
+        if tradeable:
+            countryball.tradeable = tradeable
+            await countryball.save()
+
+        if emoji_id:
+            countryball.emoji_id = int(emoji_id)
+            await countryball.save()
+
+        if wild_card:
+            countryball.wild_card = "/" + str(wild_card_path) # type: ignore
+            await countryball.save()
+
+        if collection_card:
+            countryball.collection_card = "/" + str(collection_card_path) # type: ignore
+            await countryball.save()
+
+        if credits:
+            countryball.credits = credits
+            await countryball.save()
+
+        if capacity_name:
+            countryball.capacity_name = capacity_name
+            await countryball.save()
+
+        if capacity_description:
+            countryball.capacity_description = capacity_description
+            await countryball.save()
+
+        files = []
+
+        if wild_card:
+            files.append(await wild_card.to_file())
+
+        if collection_card:
+            files.append(await collection_card.to_file())
+            
+        await interaction.client.load_cache()
+
+        if len(files) > 0:
+            return await interaction.response.send_message(f"Se actualizó a {emoji} **{countryball.country}**", files=files, ephemeral=True)
+        else:
+            return await interaction.response.send_message(f"Se actualizó a {emoji} **{countryball.country}**", ephemeral=True)

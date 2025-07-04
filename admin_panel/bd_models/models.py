@@ -22,6 +22,27 @@ def image_display(image_link: str) -> SafeText:
     return mark_safe(f'<img src="/media/{transform_media(image_link)}" width="80%" />')
 
 
+class ItemsBD(models.Model):
+    name = models.CharField(max_length=64, unique=True)
+    ball = models.ForeignKey('Ball', null=True, on_delete=models.SET_NULL, blank=True)
+    ball_id: int | None
+    special = models.ForeignKey('Special', null=True, on_delete=models.SET_NULL, blank=True)
+    special_id: int | None
+    value = models.IntegerField(default=0)
+    emoji_id = models.BigIntegerField(null=True, blank=True)
+    
+    can_register = models.BooleanField(default=False)
+    update_at = models.DateTimeField(auto_now_add=True)
+    
+    class Meta:
+        managed = True
+        db_table = "items"
+        verbose_name = "item"
+        verbose_name_plural = "items"
+
+    def __str__(self):
+        return self.name
+
 class GuildConfig(models.Model):
     guild_id = models.BigIntegerField(unique=True, help_text="Discord guild ID")
     spawn_channel = models.BigIntegerField(
@@ -31,6 +52,8 @@ class GuildConfig(models.Model):
         help_text="Whether the bot will spawn countryballs in this guild"
     )
     silent = models.BooleanField()
+    items: models.ManyToManyField[ItemsBD, ItemsBD] = models.ManyToManyField(ItemsBD, default=list)
+    update_items = models.DateTimeField(null=True, blank=True)
 
     def __str__(self) -> str:
         return str(self.guild_id)
@@ -88,6 +111,10 @@ class Player(models.Model):
     )
     extra_data = models.JSONField(blank=True, default=dict)
 
+    items: models.QuerySet[ItemsInstance]
+    money = models.IntegerField(default=0)
+    cooldown = models.DateTimeField(null=True)
+
     def is_blacklisted(self) -> bool:
         blacklist = cast(
             list[int],
@@ -99,12 +126,28 @@ class Player(models.Model):
         )
         return self.discord_id in blacklist
 
+    async def add_money(self, amount: int) -> int:
+        if amount <= 0:
+            raise ValueError("Amount to add must be positive")
+        self.money += amount
+        await self.asave(update_fields=("money",))
+        return self.money
+
+    async def remove_money(self, amount: int) -> None:
+        if self.money < amount:
+            raise ValueError("Not enough money")
+        self.money -= amount
+        await self.asave(update_fields=("money",))
+
+    def can_afford(self, amount: int) -> bool:
+        return self.money >= amount
+
     def __str__(self) -> str:
         return (
             f"{'\N{NO MOBILE PHONES} ' if self.is_blacklisted() else ''}#"
             f"{self.pk} ({self.discord_id})"
         )
-
+    
     class Meta:
         managed = True
         db_table = "player"
@@ -423,3 +466,37 @@ class Block(models.Model):
     class Meta:
         managed = True
         db_table = "block"
+
+class ItemsInstance(models.Model):
+    player = models.ForeignKey(Player, on_delete=models.CASCADE)
+    player_id: int
+    item = models.ForeignKey(ItemsBD, on_delete=models.CASCADE)
+    item_id: int
+
+    class Meta:
+        managed = True
+        db_table = "itemsinstance"
+
+    def save(
+        self,
+        force_insert: bool = False,
+        force_update: bool = False,
+        using: str | None = None,
+        update_fields: Iterable[str] | None = None,
+    ) -> None:
+        if not self.item.can_register:
+            raise ValueError("Item must be registered before purchase.")
+
+        return super().save(force_insert, force_update, using, update_fields)
+    
+    async def asave(
+        self,
+        force_insert: bool = False,
+        force_update: bool = False,
+        using: str | None = None,
+        update_fields: Iterable[str] | None = None,
+    ):
+        if not self.item.can_register:
+            raise ValueError("Item must be registered before purchase.")
+
+        return await super().asave(force_insert, force_update, using, update_fields)
