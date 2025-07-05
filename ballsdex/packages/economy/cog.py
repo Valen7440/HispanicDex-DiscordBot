@@ -198,7 +198,7 @@ async def create_items(config: GuildConfig, length: int = 6) -> None:
         update = date + timedelta(days=tuesday)
         config.update_items = update.replace(hour=18, minute=0, second=0, microsecond=0)
         await config.items.clear()
-        await config.save(update_fields=("items", "update_items"))
+        await config.save()
 
     db_items = await ItemsBD.all()
     num_items = min(length, len(db_items))
