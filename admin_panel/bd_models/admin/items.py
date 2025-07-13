@@ -12,8 +12,34 @@ if TYPE_CHECKING:
 
 @admin.register(ItemsBD)
 class ItemsBDAdmin(admin.ModelAdmin):
-    fields = ("name", "ball", "special", "value", "emoji_id", "can_register")
     autocomplete_fields = ("ball", "special")
+    fieldsets = [
+        (
+            None,
+            {
+                "fields": [
+                    "name",
+                    "emoji_id",
+                    "value",
+                    "can_register"
+                ]
+            }
+        ),
+        (
+            "Time Range",
+            {
+                "fields": ["start_date", "end_date"],
+                "description": "An optional time range to make the item limited in time.",
+            }
+        ),
+        (
+            "Rewards",
+            {
+                "classes": ("collapse",),
+                "fields": ["ball", "special"]
+            }
+        )
+    ]
 
     list_display = [
         "name",

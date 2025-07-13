@@ -641,6 +641,8 @@ class ItemsBD(models.Model):
     special_id: int
 
     name = fields.CharField(max_length=64)
+    start_date = fields.DatetimeField(null=True, default=None)
+    end_date = fields.DatetimeField(null=True, default=None)
     value = fields.IntField(default=0)
     ball: fields.ForeignKeyRelation[Ball] | None = fields.ForeignKeyField(
         "models.Ball",

@@ -18,7 +18,8 @@ from ballsdex.core.models import (
     Special,
     Player
 )
-from tortoise.timezone import now as datetime_now
+from tortoise.expressions import Q
+from tortoise.timezone import now as datetime_now, get_default_timezone
 
 if TYPE_CHECKING:
     from ballsdex.core.bot import BallsDexBot
@@ -63,8 +64,9 @@ class Economy(commands.GroupCog):
         await config.fetch_related("items")
 
         embed = discord.Embed(title=f"Tienda de Objetos de {settings.bot_name}", color=discord.Color.red())
-
-        if config.update_items and config.update_items < datetime_now() or len(config.items) <= 0:
+        
+        count = await config.items.all().count()
+        if config.update_items and config.update_items <= datetime_now() or count <= 0:
             await create_items(config)
 
         async for item in config.items.all():
@@ -77,7 +79,7 @@ class Economy(commands.GroupCog):
 
             embed.add_field(
                 name=f"{special_emoji} {emoji} {item.name}",
-                value=f"{item.value} monedas"
+                value=f"{item.value:,} monedas"
             )
     
         embed.set_footer(text="Créditos a BornarkiaDex (._themagicalflame_.; su creador) por la idea original.")
@@ -97,7 +99,11 @@ class Economy(commands.GroupCog):
         return [
             app_commands.Choice(name=f"{item.name} ({item.value})", value=str(item.pk)) 
             for item in items
-            if current.lower() in item.name.lower()
+            if (
+                (item.start_date or datetime.min.replace(tzinfo=get_default_timezone()))
+                <= datetime_now()
+                <= (item.end_date or datetime.max.replace(tzinfo=get_default_timezone()))
+            ) and current.lower() in item.name.lower()
         ][:25]
 
     @app_commands.command(name="buy")
@@ -121,11 +127,23 @@ class Economy(commands.GroupCog):
         get_item = await ItemsBD.get_or_none(pk=int(item))
         if get_item is None or get_item not in config.items:
             return await interaction.followup.send(f"No se ha encontrado a ese item.")
+        
+        if get_item.start_date >= datetime_now():
+            await interaction.followup.send(
+                "No puedes comprar todavía este item. "
+                f"En {format_dt(get_item.start_date, "R")} se podrá comprar."
+            )
+            return
+        
+        if get_item.end_date <= datetime_now():
+            await interaction.followup.send("No puedes comprar este item porque su disponibilidad ha finalizado.")
+            return
 
         if not player.can_afford(get_item.value):
+            amount_required = get_item.value - player.money
             return await interaction.followup.send(
                 "No puedes pagar este item.\n"
-                f"Se necesitán **{get_item.value - player.money}** fichas para poder pagar el item."
+                f"Se necesitán **{amount_required:,}** fichas para poder pagar el item."
             )
         
         await get_item.fetch_related("ball", "special")
@@ -164,6 +182,59 @@ class Economy(commands.GroupCog):
             return await interaction.followup.send(f"¡Has conseguido a {cb_txt} por **{get_item.value}** fichas!")
 
     @app_commands.command()
+    async def balance(self, interaction: discord.Interaction["BallsDexBot"]):
+        """
+        Visualiza la cantidad de monedas que tienes en BallsDex
+        """
+        await interaction.response.defer(thinking=True, ephemeral=True)
+        player, _ = await Player.get_or_create(discord_id=interaction.user.id)
+
+        return await interaction.followup.send(
+            f"Tienes **{player.money:,}** monedas."
+        )
+    
+    @app_commands.command()
+    async def give(
+        self,
+        interaction: discord.Interaction["BallsDexBot"],
+        user: discord.Member,
+        amount: app_commands.Range[int, 1, None]
+    ):
+        """
+        Regala monedas hacia otro usuario.
+        
+        Parameters
+        ----------
+        user: discord.Member
+            Usuario a regalar monedas.
+        amount: int
+            Cantidad de monedas a regalar.
+        """
+        await interaction.response.defer(thinking=True)
+        old_player, _ = await Player.get_or_create(discord_id=interaction.user.id)
+        new_player, _ = await Player.get_or_create(discord_id=user.id)
+
+        if not old_player.can_afford(amount):
+            money = old_player.money
+            await interaction.followup.send(
+                f"No tienes la cantidad suficiente para regalar esa "
+                "cantidad de monedas.\n"
+                f"Actualmente tienes **{money:,}** monedas."
+            )
+            return
+        
+        old_player.money -= amount
+        await old_player.save(update_fields=("money",))
+
+        new_player.money += amount
+        await new_player.save(update_fields=("money",))
+
+        return await interaction.followup.send(
+            f"¡Le has regalado **{amount:,}** monedas a {user.mention}!",
+            allowed_mentions=discord.AllowedMentions(users=new_player.can_be_mentioned)
+        )
+
+    @app_commands.command()
     async def items(self, interaction: discord.Interaction["BallsDexBot"]):
         """
         Revisa tu inventario de items.
@@ -179,7 +250,6 @@ class Economy(commands.GroupCog):
             return await interaction.followup.send(f'Actualmente, tienes **0** items.', ephemeral=True)
         
         embed = discord.Embed(title=f"Items de {interaction.user.display_name}", color=discord.Color.blurple())
-        embed.description = f"Tienes **{player.money}** monedas."
 
         i = 0
         for item in items:
@@ -192,7 +262,7 @@ class Economy(commands.GroupCog):
         return await interaction.followup.send(embed=embed)
 
 async def create_items(config: GuildConfig, length: int = 6) -> None:
-    if config.update_items is None or config.update_items < datetime_now():
+    if config.update_items is None or config.update_items <= datetime_now():
         date = datetime.now()
         tuesday = (1 - date.weekday()) % 7
         update = date + timedelta(days=tuesday)
@@ -200,7 +270,10 @@ async def create_items(config: GuildConfig, length: int = 6) -> None:
         await config.items.clear()
         await config.save(update_fields=("items", "update_items"))
 
-    db_items = await ItemsBD.all()
+    db_items = await ItemsBD.filter(
+        Q(start_date__isnull=True) | Q(start_date__lte=datetime_now()),
+        Q(end_date__isnull=True) | Q(end_date__gte=datetime_now())
+    )
     num_items = min(length, len(db_items))
 
     items = random.sample(db_items, k=num_items)

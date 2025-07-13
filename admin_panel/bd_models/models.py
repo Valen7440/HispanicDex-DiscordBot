@@ -24,6 +24,16 @@ def image_display(image_link: str) -> SafeText:
 
 class ItemsBD(models.Model):
     name = models.CharField(max_length=64, unique=True)
+    start_date = models.DateTimeField(
+        help_text="Start time of the item. If blank, starts immediately",
+        null=True, 
+        default=None
+    )
+    end_date = models.DateTimeField(
+        help_text="End time of the event. If blank, the event is permanent",
+        null=True, 
+        default=None
+    )
     ball = models.ForeignKey('Ball', null=True, on_delete=models.SET_NULL, blank=True)
     ball_id: int | None
     special = models.ForeignKey('Special', null=True, on_delete=models.SET_NULL, blank=True)
