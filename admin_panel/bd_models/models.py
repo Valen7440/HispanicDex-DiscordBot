@@ -27,12 +27,14 @@ class ItemsBD(models.Model):
     start_date = models.DateTimeField(
         help_text="Start time of the item. If blank, starts immediately",
         null=True, 
-        default=None
+        default=None,
+        blank=True
     )
     end_date = models.DateTimeField(
         help_text="End time of the event. If blank, the event is permanent",
         null=True, 
-        default=None
+        default=None,
+        blank=True
     )
     ball = models.ForeignKey('Ball', null=True, on_delete=models.SET_NULL, blank=True)
     ball_id: int | None

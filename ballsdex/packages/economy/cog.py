@@ -128,14 +128,14 @@ class Economy(commands.GroupCog):
         if get_item is None or get_item not in config.items:
             return await interaction.followup.send(f"No se ha encontrado a ese item.")
         
-        if get_item.start_date >= datetime_now():
+        if get_item.start_date and get_item.start_date >= datetime_now():
             await interaction.followup.send(
                 "No puedes comprar todavía este item. "
                 f"En {format_dt(get_item.start_date, "R")} se podrá comprar."
             )
             return
         
-        if get_item.end_date <= datetime_now():
+        if get_item.end_date and get_item.end_date <= datetime_now():
             await interaction.followup.send("No puedes comprar este item porque su disponibilidad ha finalizado.")
             return
 
