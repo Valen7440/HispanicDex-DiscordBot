@@ -79,7 +79,7 @@ class Economy(commands.GroupCog):
 
             embed.add_field(
                 name=f"{special_emoji} {emoji} {item.name}",
-                value=f"{item.value:,} monedas"
+                value=f"<:hispanic_coin:1397336808890564748> {item.value:,} monedas"
             )
     
         embed.set_footer(text="Créditos a BornarkiaDex (._themagicalflame_.; su creador) por la idea original.")
@@ -179,7 +179,7 @@ class Economy(commands.GroupCog):
                 + f" (`{instance.attack_bonus:+}%/{instance.health_bonus:+}%`)"
             )
 
-            return await interaction.followup.send(f"¡Has conseguido a {cb_txt} por **{get_item.value}** fichas!")
+            return await interaction.followup.send(f"¡Has conseguido a {cb_txt} por **<:hispanic_coin:1397336808890564748> {get_item.value}** fichas!")
 
     @app_commands.command()
     async def balance(self, interaction: discord.Interaction["BallsDexBot"]):
@@ -190,7 +190,7 @@ class Economy(commands.GroupCog):
         player, _ = await Player.get_or_create(discord_id=interaction.user.id)
 
         return await interaction.followup.send(
-            f"Tienes **{player.money:,}** monedas."
+            f"Tienes **<:hispanic_coin:1397336808890564748> {player.money:,}** monedas."
         )
     
     @app_commands.command()
@@ -230,7 +230,7 @@ class Economy(commands.GroupCog):
         await new_player.save(update_fields=("money",))
 
         return await interaction.followup.send(
-            f"¡Le has regalado **{amount:,}** monedas a {user.mention}!",
+            f"¡Le has regalado **<:hispanic_coin:1397336808890564748> {amount:,}** monedas a {user.mention}!",
             allowed_mentions=discord.AllowedMentions(users=new_player.can_be_mentioned)
         )
 
@@ -265,18 +265,30 @@ async def create_items(config: GuildConfig, length: int = 6) -> None:
     if config.update_items is None or config.update_items <= datetime_now():
         date = datetime.now()
         tuesday = (1 - date.weekday()) % 7
+        
+        if tuesday == 0 and date.hour >= 18:
+            tuesday = 7
+        
         update = date + timedelta(days=tuesday)
         config.update_items = update.replace(hour=18, minute=0, second=0, microsecond=0)
         await config.items.clear()
         await config.save()
 
-    db_items = await ItemsBD.filter(
+    db_items = ItemsBD.filter(
         Q(start_date__isnull=True) | Q(start_date__lte=datetime_now()),
         Q(end_date__isnull=True) | Q(end_date__gte=datetime_now())
     )
-    num_items = min(length, len(db_items))
+    result = await db_items
+    num_items = min(length, len(result))
 
-    items = random.sample(db_items, k=num_items)
+    items = random.sample(result, k=num_items)
+
+    if not any(item.can_register or item.ball is None for item in items):
+        db_items = db_items.filter(Q(can_register=True) | Q(ball_id__isnull=True))
+        
+        items.pop()
+        items.append(random.choice(await db_items))
+
     
     for item in items:
         await config.items.add(item)

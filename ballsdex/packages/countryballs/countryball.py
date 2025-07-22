@@ -438,7 +438,7 @@ class BallSpawnView(View):
             text += f"*{ball.specialcard.catch_phrase}*\n"
         if coins > 0:
             text += (
-                f"You won **{coins}** coins!\n"
+                f"<:hispanic_coin:1397336808890564748> You won **{coins}** coins!\n"
             )
         if new_ball:
             text += (
@@ -454,6 +454,7 @@ class BallSpawnView(View):
                 collectible=settings.collectible_name,
                 ball=self.name,
                 collectibles=settings.plural_collectible_name,
+                emoji=self.bot.get_emoji(ball.countryball.emoji_id) or ''
             )
             + " "
         )
