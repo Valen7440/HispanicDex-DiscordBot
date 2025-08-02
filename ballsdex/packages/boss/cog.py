@@ -115,9 +115,9 @@ class JoinButton(View):
                 "You have already joined the boss", ephemeral=True
             )
         self.boss_cog.users.append(interaction.user.id)
-        await player.add_money(100)
+        await player.add_money(200)
         await interaction.followup.send(
-            f"You have joined the Boss Battle and you won **100** coins!", ephemeral=True
+            f"You have joined the Boss Battle and you won **200** coins!", ephemeral=True
         )
         await log_action(
             f"{interaction.user} has joined the {self.boss_cog.bossball} Boss Battle.",
@@ -648,13 +648,13 @@ class Boss(commands.GroupCog):
                 attack_bonus=0,
                 health_bonus=0,
             )
-            await player.add_money(500)
+            await player.add_money(700)
             await interaction.followup.send(
                 f"Boss successfully concluded", ephemeral=True
             )
             await interaction.channel.send(
                 f"# Boss has concluded {self.bot.get_emoji(self.bossball.emoji_id)}\n<@{bosswinner}> has won the Boss Battle!\n\n"
-                f"`Boss` `{self.bossball}` {settings.collectible_name} was successfully given and **500** coins.\n"
+                f"`Boss` `{self.bossball}` {settings.collectible_name} was successfully given and **700** coins.\n"
             )
             bosswinner_user = await self.bot.fetch_user(int(bosswinner))
 
