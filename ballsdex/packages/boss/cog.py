@@ -36,6 +36,7 @@ from ballsdex.core.models import (
     balls,
     specials,
 )
+from .effects import *
 
 # IMPORTANT NOTES, READ BEFORE USING
 # 1. YOU MUST HAVE A SPECIAL CALLED "Boss" IN YOUR DEX, THIS IS FOR REWARDING THE WINNER.
@@ -450,18 +451,28 @@ class Boss(commands.GroupCog):
             return
         self.balls.append(ball)
         self.usersinround.append([int(interaction.user.id),self.round])
-        if ball.attack > MAXSTATS[0]: #maximum and minimum atk and hp stats 
+
+        if self.bossball.country == "Ceuta Furry":
+            attack, health = ceuta_furry_effect(ball)
+        elif self.bossball.country == "Spain":
+            attack, health = spain_effect(ball)
+        elif self.bossball.country == "Spanish Empire":
+            attack, health = spanish_empire_effect(ball)
+        else:
+            attack, health = ball.attack, ball.health
+
+        if attack > MAXSTATS[0]: #maximum and minimum atk and hp stats 
             ballattack = MAXSTATS[0]
-        elif ball.attack < 0:
+        elif attack < 0:
             ballattack = 0
         else:
-            ballattack = ball.attack
-        if ball.health > MAXSTATS[1]:
+            ballattack = attack
+        if health > MAXSTATS[1]:
             ballhealth = MAXSTATS[1]
-        elif ball.health < 0:
+        elif health < 0:
             ballhealth = 0
         else:
-            ballhealth = ball.health
+            ballhealth = health
         messageforuser = f"{ball.description(short=True, include_emoji=True, bot=self.bot)} has been selected for this round, with {ballattack} ATK and {ballhealth} HP"
         if "✨" in messageforuser:
             messageforuser = f"{ball.description(short=True, include_emoji=True, bot=self.bot)} has been selected for this round, with {ballattack}+{SHINYBUFFS[0]} ATK and {ballhealth}+{SHINYBUFFS[1]} HP"
