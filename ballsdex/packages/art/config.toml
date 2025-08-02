@@ -1,0 +1,25 @@
+# The message that will be sent in DMs when a user's artwork is accepted.
+# KEYWORDS: $user, $ball
+accepted-message = "Hi $user, your artwork for **$ball** has been accepted!"
+
+# Anyone with these roles can accept art, create art threads, and update art threads.
+# EXAMPLE: [0, 1, 2]
+art-role-ids = [1364221048802771146]
+
+# The server IDs where art commands can work.
+art-guilds = [1364026865748279467]
+
+# Threads, identified by their IDs, excluded from deletion when the `create` command is invoked.
+safe-threads = []
+
+# Whenever artwork gets accepted, the bot will react with this emoji to the message.
+accepted-emoji = "✅"
+
+# Refreshes the progress bar every X threads created.
+progress-rate = 50
+
+# Whether to update a thread's art after getting accepted.
+update-thread-art = true
+
+# Whether you want to cache threads per ForumChannel.
+cache-threads = true

@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import time
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Optional
 
 import discord
 from discord.ext import commands
@@ -71,6 +71,42 @@ class Core(commands.Cog):
             if not with_prefix:
                 return await self.reload_package("ballsdex.packages." + package, with_prefix=True)
             raise
+
+    @commands.command()
+    @commands.is_owner()
+    async def say(self, ctx: commands.Context, *, text: Optional[str]):
+        """
+        Diré todo lo que digas.
+        """
+        attachments = [
+            await attachment.to_file()
+            for attachment in (
+                ctx.message.attachments[0:10] 
+                if len(ctx.message.attachments) > 10
+                else ctx.message.attachments
+            )
+        ]
+
+        if len(attachments) <= 0 and not text:
+            return await ctx.send("No puedes enviar mensajes sin texto si no hay una imagen.")
+
+        if ctx.message.reference:
+            try:
+                message = await ctx.fetch_message(ctx.message.reference.message_id) # type: ignore
+            except Exception as e:
+                await ctx.send(f"An error occurred while trying to retrieve the message.\n```{e}```")
+                return
+            await ctx.message.delete()
+
+            await message.reply(
+                text,
+                files=attachments, 
+                allowed_mentions=discord.AllowedMentions(users=True, roles=False, everyone=False)
+            )
+        else:
+            await ctx.message.delete()
+
+            await ctx.channel.send(text, files=attachments, allowed_mentions=discord.AllowedMentions(users=True, roles=False, everyone=False))
 
     @commands.command()
     @commands.is_owner()
