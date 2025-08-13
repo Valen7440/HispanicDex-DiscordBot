@@ -97,7 +97,7 @@ class CountryballNamePrompt(Modal, title=f"Catch this {settings.collectible_name
             )
             return
 
-        coins = random.randint(10, 30)
+        coins = random.randint(10, 50)
         await player.add_money(coins)
 
         ball, has_caught_before = await self.view.catch_ball(

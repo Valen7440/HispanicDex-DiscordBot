@@ -51,9 +51,9 @@ class ItemsBDAdmin(admin.ModelAdmin):
         "Search by name, ball name or "
         "special name."
     )
-    search_fields = ("name", "country", "special_name")
+    search_fields = ("name", "ball_name", "special_name")
 
-    def country(self, obj: ItemsBD) -> str | None:
+    def ball_name(self, obj: ItemsBD) -> str | None:
         if obj.ball:
             return obj.ball.country
     
