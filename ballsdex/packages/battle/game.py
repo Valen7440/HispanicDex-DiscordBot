@@ -265,6 +265,39 @@ class BattleGame:
 
         self.embed.set_footer(text="Esta interaccion se actualiza cada 15 segundos, tienes 15 minutos antes de que termine.")
 
+    def _generate_container(self):
+        view = discord.ui.LayoutView()
+
+        first_message = discord.ui.TextDisplay(content=f"Hey, {self.team2.leader.mention}, ¡{self.team1.leader.display_name} quiere una pelea contigo!")
+
+        view.add_item(first_message)
+
+        container = discord.ui.Container()
+
+        text = discord.ui.TextDisplay(content=f"# {settings.bot_name} Battle 2.0 (BETA)")
+        container.add_item(text)
+        separator = discord.ui.Separator()
+        container.add_item(separator)
+        text2 = discord.ui.TextDisplay(content=(
+            f":crossed_swords: **Bienvenido a la batalla de {settings.collectible_name}s!** :crossed_swords:\n" # es
+            f"Añade {settings.collectible_name}s a tu equipo para empezar la pelea!\n"
+            f"Controlarás el primer {settings.collectible_name} que agregues a tu equipo.\n"
+            f"Cuando termines, confirma, ¡y que empiece la pelea!\n"
+        ))
+        container.add_item(text2)
+
+        if self.amount is not None:
+            text3 = discord.ui.TextDisplay(f"- **Cantidad:** {self.amount}")
+            container.add_item(text3)
+
+        if self.duplicates is not None:
+            text4 = discord.ui.TextDisplay(f"- **Duplicates:** {self.duplicates}")
+            container.add_item(text4)
+        
+        view.add_item(container)
+
+        return view
+
     async def update_message_loop(self):
         """
         A loop task that updates each 15 second the battle with the new content.
@@ -294,13 +327,9 @@ class BattleGame:
                 return
     
     async def start(self):
-        self._generate_embed()
-        fill_battle_embed_fields(self.embed, self.bot, self.team1, self.team2)
-        self.message = await self.channel.send(
-            content=f"Hey, {self.team2.leader.mention}, ¡{self.team1.leader.display_name} quiere una pelea contigo!",
-            embed=self.embed,
-            view=self.current_view
-        )
+        view = self._generate_container()
+        # fill_battle_embed_fields(self.embed, self.bot, self.team1, self.team2)
+        self.message = await self.channel.send(view=view)
         self.task = self.bot.loop.create_task(self.update_message_loop())
 
     async def cancel(self, reason: str = "Se cancelo la batalla."):

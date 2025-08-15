@@ -458,6 +458,8 @@ class Boss(commands.GroupCog):
             attack, health = spain_effect(ball)
         elif self.bossball.country == "Spanish Empire":
             attack, health = spanish_empire_effect(ball)
+        elif self.bossball.country == "Chile Leviathan":
+            attack, health = chile_leviatan_effect(ball)
         else:
             attack, health = ball.attack, ball.health
 

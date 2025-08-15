@@ -21,7 +21,6 @@ SPAWN_CHANCE_RANGE = (40, 55)
 
 CachedMessage = namedtuple("CachedMessage", ["content", "author_id"])
 
-
 class BaseSpawnManager:
     """
     A class instancied on cog load that will include the logic determining when a countryball

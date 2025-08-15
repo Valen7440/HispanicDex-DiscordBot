@@ -81,3 +81,9 @@ LATAM: list[str] = [
     "Turks and Caicos Islands",  # Reino Unido
     "US Virgin Islands"  # Estados Unidos
 ]
+
+SUMMER_BALLS = [
+    "Valencian Community \"San Juan\""
+    "Community of Madrid \"Dulce Sueño\"",
+    "Canary Islands Leviathan"
+]
