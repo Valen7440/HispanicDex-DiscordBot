@@ -328,8 +328,13 @@ class BattleGame:
     
     async def start(self):
         view = self._generate_container()
-        # fill_battle_embed_fields(self.embed, self.bot, self.team1, self.team2)
-        self.message = await self.channel.send(view=view)
+        fill_battle_embed_fields(self.embed, self.bot, self.team1, self.team2)
+        self.embed = self._generate_embed()
+        self.message = await self.channel.send(
+            content=f"Hey, {self.team2.leader.mention}, ¡{self.team1.leader.display_name} quiere una pelea contigo!",
+            embed=self.embed,
+            allowed_mentions=discord.AllowedMentions(users=self.team2.player.can_be_mentioned)
+        )
         self.task = self.bot.loop.create_task(self.update_message_loop())
 
     async def cancel(self, reason: str = "Se cancelo la batalla."):

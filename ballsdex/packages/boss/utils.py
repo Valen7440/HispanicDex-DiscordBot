@@ -83,7 +83,7 @@ LATAM: list[str] = [
 ]
 
 SUMMER_BALLS = [
-    "Valencian Community \"San Juan\""
+    "Valencian Community \"San Juan\"",
     "Community of Madrid \"Dulce Sueño\"",
-    "Canary Islands Leviathan"
+    "Canary Islands Leviathan",
 ]

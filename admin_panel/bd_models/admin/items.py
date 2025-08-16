@@ -43,7 +43,7 @@ class ItemsBDAdmin(admin.ModelAdmin):
 
     list_display = [
         "name",
-        "country",
+        "ball_name",
         "special_name",
         "emoji"
     ]
@@ -60,7 +60,7 @@ class ItemsBDAdmin(admin.ModelAdmin):
     def special_name(self, obj: ItemsBD) -> str | None:
         if obj.special:
             return obj.special.name
-    
+
     @admin.display(description="Emoji of this item")
     def emoji(self, obj: ItemsBD) -> str | None:
         if obj.ball:
