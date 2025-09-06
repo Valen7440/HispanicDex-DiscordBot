@@ -8,6 +8,7 @@ from discord.ext import commands
 from discord.utils import format_dt
 
 from ballsdex.settings import settings
+from ballsdex.core.utils.paginator import FieldPageSource, Pages
 from ballsdex.packages.countryballs.countryball import BallSpawnView
 from ballsdex.core.models import (
     Ball,
@@ -28,6 +29,14 @@ if TYPE_CHECKING:
 class Economy(commands.GroupCog):
     def __init__(self, bot: "BallsDexBot"):
         self.bot = bot
+
+    @property
+    def medals(self) -> dict[int, str]:
+        return {
+            1: "🥇",
+            2: "🥈",
+            3: "🥉"
+        }
 
     @app_commands.command()
     async def claim(self, interaction: discord.Interaction["BallsDexBot"]):
@@ -194,6 +203,42 @@ class Economy(commands.GroupCog):
         )
     
     @app_commands.command()
+    async def leaderboard(self, interaction: discord.Interaction["BallsDexBot"]):
+        """
+        Mira quien es el primero con más monedas en BallsDex
+        """
+        await interaction.response.defer(thinking=True, ephemeral=True)
+        players: list[tuple[Player, int]] = [(player, player.money) for player in await Player.filter(money__gte=1)]
+        sorted_players = sorted(players, key=lambda x: x[1], reverse=True)
+
+        if len(sorted_players) == 0:
+            await interaction.followup.send("Ninguna persona tiene estadísticas en la Economía del bot.")
+            return
+        
+        entries: list[tuple[str, str]] = []
+        total_count = 0
+        for i, (player, coins) in enumerate(sorted_players, start=1):
+            top = self.medals.get(i, i)
+            name = f"{top}. <@{str(player.discord_id)}>"
+
+            total_count += coins
+
+            entries.append((f"User #{i}", f"{name}: **{coins}** coin{'s' if coins > 1 else ''}"))
+        
+        per_page = 5 
+        source = FieldPageSource(entries, per_page=per_page, inline=False, clear_description=False)
+        source.embed.title = f"{settings.bot_name.capitalize()} Economy Leaderboard" 
+        source.embed.description = f"-# Total: {total_count}"
+        source.embed.colour = discord.Colour.blurple()
+        source.embed.set_author(
+            name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url
+        )
+
+        pages = Pages(source, interaction=interaction, compact=True)
+        await pages.start()
+
+
+    @app_commands.command()
     async def give(
         self,
         interaction: discord.Interaction["BallsDexBot"],
@@ -213,6 +258,10 @@ class Economy(commands.GroupCog):
         await interaction.response.defer(thinking=True)
         old_player, _ = await Player.get_or_create(discord_id=interaction.user.id)
         new_player, _ = await Player.get_or_create(discord_id=user.id)
+
+        if old_player.discord_id == new_player.discord_id:
+            await interaction.followup.send("No puedes donarte a ti mismo.")
+            return
 
         if not old_player.can_afford(amount):
             money = old_player.money

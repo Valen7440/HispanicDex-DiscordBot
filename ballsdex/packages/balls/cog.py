@@ -956,3 +956,80 @@ class Balls(commands.GroupCog, group_name=settings.players_group_cog_name):
             if emoji:
                 embed.set_thumbnail(url=emoji.url)
         await interaction.followup.send(embed=embed)
+
+    @app_commands.command(name="leaderboard", description="Look who are the first in the leaderboard")
+    @app_commands.describe(countryball="Filter the leaderboard by a countryball.", special="Filter the leaderboard by a special.")
+    async def leaderboard(
+        self, 
+        interaction: discord.Interaction["BallsDexBot"],
+        countryball: BallEnabledTransform | None = None,
+        special: SpecialEnabledTransform | None = None
+    ):
+        raw_players = await Player.all()
+
+        player_stats: list[tuple[Player, int]] = []
+        for player in raw_players:
+            queryset = player.balls.all()
+
+            if countryball:
+                queryset = queryset.filter(ball=countryball)
+            if special:
+                queryset = queryset.filter(special=special)
+
+            count = await queryset.count()
+            if count > 0:
+                player_stats.append((player, count))
+
+        ball_txt = countryball.country if countryball else ""
+        special_txt = special if special else ""
+
+        if special_txt and ball_txt:
+            combined = f"{special_txt} {ball_txt}"
+        elif special_txt:
+            combined = special_txt
+        elif ball_txt:
+            combined = ball_txt
+        else:
+            combined = ""
+
+        if len(player_stats) == 0:
+            return await interaction.response.send_message(f"Players don't have any {settings.plural_collectible_name} {combined}", ephemeral=True)
+
+        sorted_stats = sorted(player_stats, key=lambda x: x[1], reverse=True)
+
+        entries = []
+
+        total_count = 0
+        for top, stats in enumerate(sorted_stats, start=1):
+            player, count = stats
+
+            if count == 0:
+                continue
+
+            name = f"<@{str(player.discord_id)}>"
+    
+            if top == 1:
+                name = f"🥇 {name}" 
+            elif top == 2: 
+                name = f"🥈 {name}"
+            elif top == 3:
+                name = f"🥉 {name}"
+            else:
+                name = f"{top}. {name}"
+
+            total_count += count
+
+            entry = (f"User #{top}", f"{name}: **{count}** {settings.collectible_name}{'s' if count > 1 else ''}")
+            entries.append(entry)
+
+        per_page = 5 
+        source = FieldPageSource(entries, per_page=per_page, inline=False, clear_description=False)
+        source.embed.title = f"{settings.bot_name.capitalize()} Leaderboard{f" ({combined})" if len(str(combined)) > 0 else ''}" 
+        source.embed.description = f"-# Total: {total_count}"
+        source.embed.colour = discord.Colour.blurple()
+        source.embed.set_author(
+            name=interaction.user.display_name, icon_url=interaction.user.display_avatar.url
+        )
+
+        pages = Pages(source, interaction=interaction, compact=True)
+        await pages.start()

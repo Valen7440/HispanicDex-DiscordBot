@@ -443,7 +443,7 @@ class BallSpawnView(View):
         if new_ball:
             text += (
                 f"This is a **new {settings.collectible_name}** "
-                "that has been added to your completion!"
+                "that has been added to your completion!\n"
             )
         if self.ballinstance:
             text += f"This {settings.collectible_name} was dropped by <@{self.og_id}>\n"
